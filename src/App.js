@@ -15,18 +15,30 @@ const CATEGORIES = [
 
 function App() {
   const [showForm, setShowForm] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const [facts, setFacts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentCategory, setCurrentCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isPending, startTransition] = useTransition();
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem('theme') || 'dark'
-  );
+  
+  // Get initial theme from localStorage or default to 'dark'
+  const [theme, setTheme] = useState(() => {
+    const savedTheme = localStorage.getItem('theme');
+    return savedTheme || 'dark';
+  });
 
-  // Apply theme and persist
+  // Apply theme to body and save to localStorage whenever it changes
   useEffect(() => {
+    // First remove all possible theme classes to avoid conflicts
+    document.body.classList.remove('dark', 'light');
+    // Add the current theme class
+    document.body.classList.add(theme);
+    // Also set it directly on the class name for backwards compatibility
     document.body.className = theme;
+    // Save to localStorage
     localStorage.setItem('theme', theme);
+    console.log('Theme applied:', theme, document.body.className); // Debug log
   }, [theme]);
 
   // Fetch facts from Supabase
@@ -39,6 +51,12 @@ function App() {
         if (currentCategory !== 'all') {
           query = query.eq('category', currentCategory);
         }
+        
+        // If there's a search query, add a filter for it
+        if (searchQuery) {
+          query = query.ilike('text', `%${searchQuery}%`);
+        }
+        
         const { data, error } = await query
           .order('votesInteresting', { ascending: false })
           .limit(1000);
@@ -52,18 +70,26 @@ function App() {
     }
     getFacts();
     return () => { ignore = true; };
-  }, [currentCategory]);
+  }, [currentCategory, searchQuery]);
 
   return (
     <>
       <Header
         showForm={showForm}
         setShowForm={setShowForm}
+        showSearch={showSearch}
+        setShowSearch={setShowSearch}
         theme={theme}
         setTheme={setTheme}
       />
       {showForm && <NewFactForm setFacts={setFacts} setShowForm={setShowForm} />}
-      <main className="main">
+      {showSearch && (
+        <SearchBar 
+          searchQuery={searchQuery} 
+          setSearchQuery={setSearchQuery} 
+        />
+      )}
+      <main className={`main ${searchQuery ? 'search-active' : ''}`}>
         <CategoryFilter setCurrentCategory={(cat) => startTransition(() => setCurrentCategory(cat))} />
         {isLoading ? <Loader /> : <FactList facts={facts} setFacts={setFacts} />}
       </main>
@@ -75,7 +101,15 @@ function Loader() {
   return <p className="message">Loading ...</p>;
 }
 
-function Header({ showForm, setShowForm, theme, setTheme }) {
+// Updated Header component with improved theme toggle
+function Header({ showForm, setShowForm, showSearch, setShowSearch, theme, setTheme }) {
+  // Function to toggle theme with proper debugging
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    console.log('Theme changed to:', newTheme); // Debug log
+  };
+
   return (
     <header className="header">
       <div className="logo">
@@ -84,19 +118,54 @@ function Header({ showForm, setShowForm, theme, setTheme }) {
       </div>
       <div style={{ display: 'flex', gap: '0.5rem' }}>
         <button
+          className="btn btn-large"
+          onClick={() => {
+            setShowSearch((s) => !s);
+            if (showForm) setShowForm(false);
+          }}
+        >
+          {showSearch ? 'Close' : '🔍 Search'}
+        </button>
+        <button
           className="btn btn-large btn-open"
-          onClick={() => setShowForm((s) => !s)}
+          onClick={() => {
+            setShowForm((s) => !s);
+            if (showSearch) setShowSearch(false);
+          }}
         >
           {showForm ? 'Close' : 'Share a fact'}
         </button>
         <button
-          className="btn btn-large"
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className="btn btn-large theme-toggle"
+          onClick={toggleTheme}
         >
           {theme === 'dark' ? '🌞 Light' : '🌙 Dark'}
         </button>
       </div>
     </header>
+  );
+}
+
+function SearchBar({ searchQuery, setSearchQuery }) {
+  const handleClear = () => {
+    setSearchQuery('');
+  };
+
+  return (
+    <div className="search-bar">
+      <input
+        type="text"
+        placeholder="Search facts..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
+      {searchQuery && (
+        <button className="search-clear-btn" onClick={handleClear}>
+          ✕
+        </button>
+      )}
+      <span className="search-icon">🔍</span>
+    </div>
   );
 }
 
@@ -363,7 +432,7 @@ function FactList({ facts, setFacts }) {
   if (!facts.length) {
     return (
       <p className="message">
-        Currently there's no facts for this category yet! Create the first one!
+        No facts found! Try a different search or category.
       </p>
     );
   }
@@ -374,7 +443,7 @@ function FactList({ facts, setFacts }) {
           <Fact key={fact.id} fact={fact} setFacts={setFacts} />
         ))}
       </ul>
-      <p>There are {facts.length} facts in the database. Add your own!</p>
+      <p>Found {facts.length} facts. Add your own!</p>
     </section>
   );
 }
