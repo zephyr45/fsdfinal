@@ -1,8 +1,4 @@
-window.supabase = supabase;
-
-
-/* eslint-disable no-unused-vars */
-import { useEffect, useState, useTransition } from 'react';
+import React, { useEffect, useState, useTransition } from 'react';
 import supabase from './supabase';
 import './style.css';
 
@@ -23,33 +19,49 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentCategory, setCurrentCategory] = useState('all');
   const [isPending, startTransition] = useTransition();
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem('theme') || 'dark'
+  );
 
+  // Apply theme and persist
+  useEffect(() => {
+    document.body.className = theme;
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  // Fetch facts from Supabase
   useEffect(() => {
     let ignore = false;
     async function getFacts() {
       setIsLoading(true);
       try {
         let query = supabase.from('facts').select('*');
-        if (currentCategory !== 'all')
+        if (currentCategory !== 'all') {
           query = query.eq('category', currentCategory);
+        }
         const { data, error } = await query
           .order('votesInteresting', { ascending: false })
           .limit(1000);
         if (!ignore && !error) setFacts(data);
-        else if (error) throw error;
-      } catch (err) {
+        if (error) throw error;
+      } catch {
         alert('There was a problem retrieving the facts!');
       } finally {
         if (!ignore) setIsLoading(false);
       }
     }
     getFacts();
-    return () => (ignore = true);
+    return () => { ignore = true; };
   }, [currentCategory]);
 
   return (
     <>
-      <Header showForm={showForm} setShowForm={setShowForm} />
+      <Header
+        showForm={showForm}
+        setShowForm={setShowForm}
+        theme={theme}
+        setTheme={setTheme}
+      />
       {showForm && <NewFactForm setFacts={setFacts} setShowForm={setShowForm} />}
       <main className="main">
         <CategoryFilter setCurrentCategory={(cat) => startTransition(() => setCurrentCategory(cat))} />
@@ -63,16 +75,27 @@ function Loader() {
   return <p className="message">Loading ...</p>;
 }
 
-function Header({ showForm, setShowForm }) {
+function Header({ showForm, setShowForm, theme, setTheme }) {
   return (
     <header className="header">
       <div className="logo">
         <img src="logo.png" alt="Today I Learned Logo" />
         <h1>Today I Learned</h1>
       </div>
-      <button className="btn btn-large btn-open" onClick={() => setShowForm((s) => !s)}>
-        {showForm ? 'Close' : 'Share a fact'}
-      </button>
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <button
+          className="btn btn-large btn-open"
+          onClick={() => setShowForm((s) => !s)}
+        >
+          {showForm ? 'Close' : 'Share a fact'}
+        </button>
+        <button
+          className="btn btn-large"
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        >
+          {theme === 'dark' ? '🌞 Light' : '🌙 Dark'}
+        </button>
+      </div>
     </header>
   );
 }
@@ -81,7 +104,7 @@ function isValidHttpUrl(string) {
   try {
     const url = new URL(string);
     return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch (_) {
+  } catch {
     return false;
   }
 }
@@ -108,7 +131,7 @@ function NewFactForm({ setFacts, setShowForm }) {
       setSource('');
       setCategory('');
       setShowForm(false);
-    } catch (err) {
+    } catch {
       alert('Error uploading the fact!');
     } finally {
       setIsUploading(false);
@@ -126,13 +149,17 @@ function NewFactForm({ setFacts, setShowForm }) {
       />
       <span>{200 - text.length}</span>
       <input
-        value={source}
         type="text"
         placeholder="Trustworthy source..."
+        value={source}
         onChange={(e) => setSource(e.target.value)}
         disabled={isUploading}
       />
-      <select value={category} onChange={(e) => setCategory(e.target.value)} disabled={isUploading}>
+      <select
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        disabled={isUploading}
+      >
         <option value="">Choose category:</option>
         {CATEGORIES.map((cat) => (
           <option key={cat.name} value={cat.name}>
@@ -140,7 +167,9 @@ function NewFactForm({ setFacts, setShowForm }) {
           </option>
         ))}
       </select>
-      <button className="btn btn-large" disabled={isUploading}>Post</button>
+      <button className="btn btn-large" disabled={isUploading}>
+        Post
+      </button>
     </form>
   );
 }
@@ -150,7 +179,10 @@ function CategoryFilter({ setCurrentCategory }) {
     <aside>
       <ul>
         <li className="category">
-          <button className="btn btn-all-categories" onClick={() => setCurrentCategory('all')}>
+          <button
+            className="btn btn-all-categories"
+            onClick={() => setCurrentCategory('all')}
+          >
             All
           </button>
         </li>
@@ -171,12 +203,13 @@ function CategoryFilter({ setCurrentCategory }) {
 }
 
 function FactList({ facts, setFacts }) {
-  if (!facts.length)
+  if (!facts.length) {
     return (
       <p className="message">
         Currently there's no facts for this category yet! Create the first one!
       </p>
     );
+  }
 
   return (
     <section>
@@ -204,7 +237,7 @@ function Fact({ fact, setFacts }) {
         .select();
       if (error) throw error;
       setFacts((facts) => facts.map((f) => (f.id === fact.id ? data[0] : f)));
-    } catch (err) {
+    } catch {
       alert('Error voting!');
     } finally {
       setIsUpdating(false);
