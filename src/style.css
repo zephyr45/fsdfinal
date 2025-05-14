@@ -1,35 +1,39 @@
-/* Base resets */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-/* Base body (default dark) */
 body {
   background-color: #292524;
   color: #fafaf9;
   font-family: 'Sono', sans-serif;
   padding: 48px 64px 0;
+  transition: background-color 0.3s, color 0.3s;
 }
 
-/* Theme overrides */
+/* Theme specific styles */
 body.dark {
-  background-color: #1a1a1a;
-  color: white;
+  background-color: #292524;
+  color: #fafaf9;
 }
 
 body.light {
-  background-color: #ffffff;
-  color: #1f2937;
+  background-color: #f5f5f4;
+  color: #1c1917;
 }
 
-/* Light-theme component overrides */
+/* Component overrides for light theme */
 body.light .fact {
-  background-color: #f3f4f6;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 body.light .fact-form {
+  background-color: #e5e7eb;
+}
+
+body.light .search-bar {
   background-color: #e5e7eb;
 }
 
@@ -41,16 +45,38 @@ body.light .vote-buttons button:hover {
   background-color: #9ca3af;
 }
 
-body.light .btn {
-  color: #1f2937;
+/* Make the theme toggle button more visible */
+.theme-toggle {
+  position: relative;
+  overflow: hidden;
 }
 
-/* Utility classes */
+/* Add animation for theme transition */
+.theme-toggle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateX(-100%);
+  transition: transform 0.3s;
+}
+
+.theme-toggle:active::before {
+  transform: translateX(0);
+}
+
+/* Improved debugging helper - this class will be visible if there's a theme issue */
+.theme-error {
+  border: 2px solid red !important;
+}
+
 .hidden {
   display: none !important;
 }
 
-/* Messages */
 .message {
   text-align: center;
   text-transform: uppercase;
@@ -65,7 +91,6 @@ body.light .btn {
   margin-right: 10px;
 }
 
-/* Layout */
 #root {
   max-width: 1500px;
   margin: 0 auto;
@@ -131,7 +156,6 @@ h1 {
   gap: 24px;
 }
 
-/* Tag Styles */
 .tag {
   text-transform: uppercase;
   font-size: 14px;
@@ -140,7 +164,6 @@ h1 {
   border-radius: 100px;
 }
 
-/* Vote button styling */
 .vote-buttons {
   margin-left: auto;
   flex-shrink: 0;
@@ -186,7 +209,6 @@ ul {
   color: #3b82f6;
 }
 
-/* Button styles */
 .btn {
   border: none;
   font-family: 'Coiny', sans-serif;
@@ -220,7 +242,6 @@ ul {
   background-image: none;
 }
 
-/* Fact Form styling */
 .fact-form {
   background-color: #44403c;
   margin-bottom: 40px;
@@ -257,16 +278,6 @@ ul {
   margin-right: 18px;
 }
 
-/* Image styling in fact */
-.fact img {
-  width: 100px;
-  height: 100px;
-  object-fit: cover;
-  border-radius: 8px;
-  margin-right: 16px;
-}
-
-/* Responsive */
 @media (max-width: 1200px) {
   .fact {
     flex-direction: column;
@@ -280,6 +291,7 @@ ul {
     flex-direction: column;
     align-items: stretch;
   }
+
   .fact-form input,
   .fact-form select {
     width: auto;
@@ -297,14 +309,116 @@ ul {
   #root {
     padding: 24px;
   }
+
   .header {
     flex-direction: column;
     gap: 16px;
   }
+
   .fact-form {
     padding: 16px;
   }
+
   .fact {
     padding: 12px 16px;
+  }
+}
+/* Add this to your existing style.css file */
+
+/* Search Bar Styling */
+.search-bar {
+  background-color: #44403c;
+  margin-bottom: 24px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  border-radius: 100px;
+  position: relative;
+  transition: all 0.3s ease;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+body.light .search-bar {
+  background-color: #e5e7eb;
+}
+
+.search-bar:focus-within {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+  transform: translateY(-2px);
+}
+
+.search-bar input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  color: inherit;
+  font-family: inherit;
+  padding: 12px 16px 12px 40px;
+  outline: none;
+  width: 100%;
+}
+
+.search-bar input::placeholder {
+  color: #a8a29e;
+  transition: opacity 0.3s;
+}
+
+.search-bar input:focus::placeholder {
+  opacity: 0.5;
+}
+
+.search-icon {
+  position: absolute;
+  left: 16px;
+  font-size: 18px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.search-clear-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 18px;
+  opacity: 0.6;
+  transition: all 0.2s;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-clear-btn:hover {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+body.light .search-clear-btn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Add a nice fade effect for search results */
+.facts-list li {
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.search-active .facts-list li {
+  animation: fadeIn 0.5s forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
