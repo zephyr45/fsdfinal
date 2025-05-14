@@ -113,28 +113,135 @@ function NewFactForm({ setFacts, setShowForm }) {
   const [text, setText] = useState('');
   const [source, setSource] = useState('');
   const [category, setCategory] = useState('');
+  const [image, setImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Handle image selection and preview
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImage(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setImage(null);
+      setImagePreview(null);
+    }
+  };
+
+  // Clear image selection
+  const handleClearImage = () => {
+    setImage(null);
+    setImagePreview(null);
+    // Reset the file input
+    const fileInput = document.getElementById('image-upload');
+    if (fileInput) fileInput.value = '';
+  };
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!text || !isValidHttpUrl(source) || !category || text.length > 200) return;
-
+    
+    // Validation
+    if (!text || !isValidHttpUrl(source) || !category || text.length > 200) {
+      alert('Please fill in all required fields and ensure the source is a valid URL.');
+      return;
+    }
+    
     setIsUploading(true);
+    setUploadProgress(0);
+    
     try {
-      const { data, error } = await supabase
+      let imageUrl = '';
+      
+      // First try to insert the fact record without the image
+      // This will help identify if the issue is with the database insert or storage
+      const { data: factData, error: factError } = await supabase
         .from('facts')
-        .insert([{ text, source, category }])
+        .insert([{ 
+          text, 
+          source, 
+          category,
+          image_url: '',  // Temporarily empty 
+          votesInteresting: 0,
+          votesMindblowing: 0,
+          votesFalse: 0
+        }])
         .select();
-      if (error) throw error;
-      setFacts((facts) => [data[0], ...facts]);
+      
+      if (factError) {
+        throw new Error(`Error inserting fact: ${factError.message}`);
+      }
+      
+      const factId = factData[0].id;
+      
+      // If an image was selected, upload it and update the fact
+      if (image) {
+        const fileName = `fact_${factId}_${Date.now()}_${image.name.replace(/\s+/g, '_')}`;
+        
+        // Upload to storage
+        const { error: uploadError } = await supabase
+          .storage
+          .from('fact-images')
+          .upload(fileName, image, {
+            cacheControl: '3600',
+            upsert: false,
+            onUploadProgress: (progress) => {
+              const percent = Math.round((progress.loaded / progress.total) * 100);
+              setUploadProgress(percent);
+            }
+          });
+        
+        if (uploadError) {
+          // Log the error but don't throw - we want to keep the fact even if image upload fails
+          console.error('Image upload error:', uploadError);
+          alert(`Fact was saved but there was an issue uploading the image: ${uploadError.message}`);
+        } else {
+          // Get the public URL of the uploaded image
+          const { data: urlData } = supabase
+            .storage
+            .from('fact-images')
+            .getPublicUrl(fileName);
+          
+          imageUrl = urlData.publicUrl;
+          
+          // Update the fact with the image URL
+          const { error: updateError } = await supabase
+            .from('facts')
+            .update({ image_url: imageUrl })
+            .eq('id', factId);
+          
+          if (updateError) {
+            console.error('Error updating fact with image:', updateError);
+            alert(`Fact was saved but there was an issue linking the image: ${updateError.message}`);
+          }
+        }
+      }
+      
+      // Update the facts list with the new fact
+      setFacts((facts) => [
+        { ...factData[0], image_url: imageUrl }, 
+        ...facts
+      ]);
+      
+      // Reset form fields
       setText('');
       setSource('');
       setCategory('');
+      setImage(null);
+      setImagePreview(null);
       setShowForm(false);
-    } catch {
-      alert('Error uploading the fact!');
+      
+    } catch (error) {
+      console.error('Error uploading fact:', error);
+      alert('Error uploading the fact! ' + error.message);
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
     }
   }
 
@@ -148,6 +255,7 @@ function NewFactForm({ setFacts, setShowForm }) {
         disabled={isUploading}
       />
       <span>{200 - text.length}</span>
+      
       <input
         type="text"
         placeholder="Trustworthy source..."
@@ -155,6 +263,7 @@ function NewFactForm({ setFacts, setShowForm }) {
         onChange={(e) => setSource(e.target.value)}
         disabled={isUploading}
       />
+      
       <select
         value={category}
         onChange={(e) => setCategory(e.target.value)}
@@ -167,8 +276,56 @@ function NewFactForm({ setFacts, setShowForm }) {
           </option>
         ))}
       </select>
-      <button className="btn btn-large" disabled={isUploading}>
-        Post
+      
+      {/* Image Upload Section */}
+      <div className="image-upload-container">
+        <input
+          id="image-upload"
+          type="file"
+          accept="image/*"
+          onChange={handleImageChange}
+          disabled={isUploading}
+          className="image-input"
+        />
+        
+        <label htmlFor="image-upload" className="image-upload-label">
+          {imagePreview ? "Change Image" : "Upload Image"}
+        </label>
+        
+        {imagePreview && (
+          <div className="image-preview-container">
+            <img 
+              src={imagePreview} 
+              alt="Preview" 
+              className="image-preview" 
+            />
+            <button 
+              type="button" 
+              className="clear-image-btn"
+              onClick={handleClearImage}
+              disabled={isUploading}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        
+        {isUploading && uploadProgress > 0 && (
+          <div className="upload-progress">
+            <div 
+              className="progress-bar" 
+              style={{ width: `${uploadProgress}%` }}
+            ></div>
+            <span className="progress-text">{uploadProgress}%</span>
+          </div>
+        )}
+      </div>
+      
+      <button 
+        className="btn btn-large" 
+        disabled={isUploading}
+      >
+        {isUploading ? "Posting..." : "Post"}
       </button>
     </form>
   );
@@ -210,7 +367,6 @@ function FactList({ facts, setFacts }) {
       </p>
     );
   }
-
   return (
     <section>
       <ul className="facts-list">
@@ -225,6 +381,7 @@ function FactList({ facts, setFacts }) {
 
 function Fact({ fact, setFacts }) {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isImageExpanded, setIsImageExpanded] = useState(false);
   const isDisputed = fact.votesInteresting < fact.votesFalse;
 
   async function handleVote(columnName) {
@@ -246,28 +403,49 @@ function Fact({ fact, setFacts }) {
 
   return (
     <li className="fact">
-      <p>
-        {isDisputed && <span className="disputed">[⛔️ DISPUTED]</span>}
-        {fact.text}
-        <a className="source" href={fact.source} target="_blank" rel="noreferrer">
-          (Source)
-        </a>
-      </p>
-      <span
-        className="tag"
-        style={{
-          backgroundColor: CATEGORIES.find((cat) => cat.name === fact.category)?.color,
-        }}
-      >
-        {fact.category}
-      </span>
-      <div className="vote-buttons">
-        <button onClick={() => handleVote('votesInteresting')} disabled={isUpdating}>
-          👍 {fact.votesInteresting}
-        </button>
-        <button onClick={() => handleVote('votesFalse')} disabled={isUpdating}>
-          ⛔️ {fact.votesFalse}
-        </button>
+      <div className="fact-content">
+        <p>
+          {isDisputed && <span className="disputed">[⛔ DISPUTED]</span>}
+          {fact.text}
+          <a className="source" href={fact.source} target="_blank" rel="noreferrer">
+            (Source)
+          </a>
+        </p>
+        
+        {/* Image display with click to expand/collapse */}
+        {fact.image_url && fact.image_url !== '' && (
+          <div className={`fact-image-container ${isImageExpanded ? 'expanded' : ''}`}>
+            <img 
+              src={fact.image_url} 
+              alt="Fact image" 
+              className="fact-image"
+              onClick={() => setIsImageExpanded(!isImageExpanded)}
+            />
+            <span className="image-zoom-hint">
+              {isImageExpanded ? 'Click to collapse' : 'Click to expand'}
+            </span>
+          </div>
+        )}
+      </div>
+      
+      <div className="fact-meta">
+        <span
+          className="tag"
+          style={{
+            backgroundColor: CATEGORIES.find((cat) => cat.name === fact.category)?.color,
+          }}
+        >
+          {fact.category}
+        </span>
+        
+        <div className="vote-buttons">
+          <button onClick={() => handleVote('votesInteresting')} disabled={isUpdating}>
+            👍 {fact.votesInteresting}
+          </button>
+          <button onClick={() => handleVote('votesFalse')} disabled={isUpdating}>
+            ⛔ {fact.votesFalse}
+          </button>
+        </div>
       </div>
     </li>
   );
