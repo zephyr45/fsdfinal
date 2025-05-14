@@ -1,9 +1,11 @@
+/* Base resets */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+/* Base body (default dark) */
 body {
   background-color: #292524;
   color: #fafaf9;
@@ -11,10 +13,44 @@ body {
   padding: 48px 64px 0;
 }
 
+/* Theme overrides */
+body.dark {
+  background-color: #1a1a1a;
+  color: white;
+}
+
+body.light {
+  background-color: #ffffff;
+  color: #1f2937;
+}
+
+/* Light-theme component overrides */
+body.light .fact {
+  background-color: #f3f4f6;
+}
+
+body.light .fact-form {
+  background-color: #e5e7eb;
+}
+
+body.light .vote-buttons button {
+  background-color: #d1d5db;
+}
+
+body.light .vote-buttons button:hover {
+  background-color: #9ca3af;
+}
+
+body.light .btn {
+  color: #1f2937;
+}
+
+/* Utility classes */
 .hidden {
   display: none !important;
 }
 
+/* Messages */
 .message {
   text-align: center;
   text-transform: uppercase;
@@ -29,6 +65,7 @@ body {
   margin-right: 10px;
 }
 
+/* Layout */
 #root {
   max-width: 1500px;
   margin: 0 auto;
@@ -216,6 +253,7 @@ ul {
   margin-right: 18px;
 }
 
+/* Responsive */
 @media (max-width: 1200px) {
   .fact {
     flex-direction: column;
@@ -229,7 +267,6 @@ ul {
     flex-direction: column;
     align-items: stretch;
   }
-
   .fact-form input,
   .fact-form select {
     width: auto;
@@ -247,16 +284,13 @@ ul {
   #root {
     padding: 24px;
   }
-
   .header {
     flex-direction: column;
     gap: 16px;
   }
-
   .fact-form {
     padding: 16px;
   }
-
   .fact {
     padding: 12px 16px;
   }
